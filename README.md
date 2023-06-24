@@ -1,3 +1,5 @@
+***NOTE: In progress!! Come back later!***
+
 # PiPlayer
 
 A relatively easy-to-use utility to set up one or more RaspberryPi's as a video player.
