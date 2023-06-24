@@ -4,13 +4,19 @@ A relatively easy-to-use utility to set up one or more RaspberryPi's as a video 
 
 PiPlayer will install vlc on your Pi(s), transfer videos, and set them to play on startup.
 
-## Prerequisites
+## Installation 
 
 You should have one or more Pi's on your local network. The Pi's should have:
 
 * the latest raspbian with console only install
 * auto-login enabled
 * passwordless authentication with ssh keys
+
+On your computer, install PiPlayer with:
+
+```bash
+pip install piplayer
+```
 
 ## Usage
 

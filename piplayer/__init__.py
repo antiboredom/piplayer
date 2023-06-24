@@ -81,7 +81,7 @@ def create_service(player, service_type="bashrc"):
 
     vlc_command = " ".join(vlc_args)
 
-    if service_type="bashrc":
+    if service_type=="bashrc":
         service = f"""
             if pgrep -x vlc >/dev/null
             then
@@ -168,7 +168,7 @@ def extant_file(x):
 
 def cli():
     parser = argparse.ArgumentParser(
-        prog="VideoPI",
+        prog="PiPlayer",
         description="Easily setup and play videos on Raspberry Pi",
     )
     parser.add_argument("--project", help="Project file to load", type=extant_file)
@@ -177,6 +177,9 @@ def cli():
     )
     parser.add_argument("--video", help="Video file(s)", nargs="+")
     args = parser.parse_args()
+
+    if not args.project or (not args.video and not args.host):
+        parser.error("You must either specify a --project file or --video AND --host")
 
     main(project_file=args.project, hosts=args.host, videos=args.video)
 
