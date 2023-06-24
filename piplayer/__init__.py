@@ -26,9 +26,9 @@ def remote_run(player, command):
 
 
 def setup_system(player):
-    '''
+    """
     Installs vlc if needed and creates the videos directory
-    '''
+    """
 
     command = """if ! command -v vlc &> /dev/null
         then
@@ -72,7 +72,7 @@ def make_playlist(player):
 
 def create_service(player, service_type="bashrc"):
     user = player.get("user")
-    vlc_args = ["cvlc", "--daemon", f"/home/{user}/playlist.m3u"]
+    vlc_args = ["cvlc", "--daemon", "--no-osd", f"/home/{user}/playlist.m3u"]
     if player["loop"] is True:
         vlc_args += ["--loop"]
 
@@ -81,7 +81,7 @@ def create_service(player, service_type="bashrc"):
 
     vlc_command = " ".join(vlc_args)
 
-    if service_type=="bashrc":
+    if service_type == "bashrc":
         service = f"""
             if pgrep -x vlc >/dev/null
             then
@@ -92,7 +92,9 @@ def create_service(player, service_type="bashrc"):
             fi
         """
 
-        command = f"""echo "{service}" > ~/start_player.sh; chmod u+x ~/start_player.sh"""
+        command = (
+            f"""echo "{service}" > ~/start_player.sh; chmod u+x ~/start_player.sh"""
+        )
         remote_run(player, command)
 
         command = """grep -qxF '~/start_player.sh' ~/.bashrc || echo '~/start_player.sh' >> ~/.bashrc"""
@@ -137,7 +139,7 @@ def main(project_file=None, hosts=None, videos=None):
             players = data.get("players", [])
     elif hosts is not None and videos is not None:
         for h in hosts:
-            players.append({'host': h, 'videos': videos})
+            players.append({"host": h, "videos": videos})
 
     # merge settings and defaults
     settings = {**DEFAULTS, **settings}
