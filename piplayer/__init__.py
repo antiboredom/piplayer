@@ -44,7 +44,11 @@ class PiPlayer:
         self.command_queue = []
         run(command, shell=True)
 
-    def setup_system(self):
+    def create_folder(self):
+        command = """mkdir -p ~/videos"""
+        self.remote_run(command)
+
+    def install_vlc(self):
         """
         Installs vlc if needed and creates the videos directory
         """
@@ -54,7 +58,6 @@ class PiPlayer:
                 sudo apt-get update
                 sudo apt-get -y install vlc
             fi
-            mkdir -p ~/videos
             """
         self.remote_run(command)
 
@@ -70,6 +73,9 @@ class PiPlayer:
         self.videos = videos
 
     def copy_videos(self):
+        self.create_folder()
+        self.send_commands()
+
         for v in self.videos:
             command = f"""rsync -avzP --ignore-existing {v} {self.user}@{self.host}:~/videos/"""
             run(command, shell=True)
@@ -132,10 +138,11 @@ class PiPlayer:
 
     def run(self):
         self.prepare_video_paths()
-        self.setup_system()
         self.copy_videos()
+        self.install_vlc()
         self.make_playlist()
         self.create_service()
+        self.send_commands()
 
 
 
