@@ -14,118 +14,129 @@ DEFAULTS = {
 }
 
 
-def remote_run(player, command):
-    """runs a remote command
-    sets timeout to 5 seconds
-    """
+class PiPlayer:
+    def __init__(
+        self,
+        host,
+        videos,
+        user=DEFAULTS["user"],
+        loop=DEFAULTS["loop"],
+        random=DEFAULTS["random"],
+        start_at=DEFAULTS["start_at"],
+        gap=DEFAULTS["gap"],
+    ):
+        self.host = host
+        self.videos = videos
+        self.user = user
+        self.loop = loop
+        self.random = random
+        self.start_at = start_at
+        self.gap = gap
 
-    user = player.get("user")
-    host = player.get("host")
-    command = f"""ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no {user}@{host} '{command}'"""
-    run(command, shell=True)
+        self.command_queue = []
 
+    def remote_run(self, command):
+        self.command_queue.append(command)
 
-def setup_system(player):
-    """
-    Installs vlc if needed and creates the videos directory
-    """
-
-    command = """if ! command -v vlc &> /dev/null
-        then
-            sudo apt-get update
-            sudo apt-get -y install vlc
-        fi
-        mkdir -p ~/videos
-        """
-    remote_run(player, command)
-
-
-def prepare_video_paths(player):
-    videos = player.get("videos")
-
-    if isinstance(videos, str):
-        videos = [videos]
-
-    videos = [glob(v) for v in videos]
-    videos = [v for sublist in videos for v in sublist]
-    return videos
-
-
-def copy_videos(player):
-    host = player.get("host")
-    user = player.get("user")
-    videos = player.get("videos")
-
-    for v in videos:
-        command = f"""rsync -avzP --ignore-existing {v} {user}@{host}:~/videos/"""
+    def send_commands(self):
+        commands = "\n".join(self.command_queue)
+        command = f"""ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no {self.user}@{self.host} '{commands}'"""
+        self.command_queue = []
         run(command, shell=True)
 
+    def setup_system(self):
+        """
+        Installs vlc if needed and creates the videos directory
+        """
 
-def make_playlist(player):
-    user = player.get("user")
-    videos = player.get("videos")
-    plist = [f"/home/{user}/videos/{os.path.basename(v)}" for v in videos]
-    plist = "\n".join(plist)
-    command = f"""echo "{plist}" > ~/playlist.m3u"""
-    remote_run(player, command)
-
-
-def create_service(player, service_type="bashrc"):
-    user = player.get("user")
-    vlc_args = ["cvlc", "--daemon", "--no-osd", f"/home/{user}/playlist.m3u"]
-    if player["loop"] is True:
-        vlc_args += ["--loop"]
-
-    if player["random"] is True:
-        vlc_args += ["--random"]
-
-    vlc_command = " ".join(vlc_args)
-
-    if service_type == "bashrc":
-        service = f"""
-            if pgrep -x vlc >/dev/null
+        command = """if ! command -v vlc &> /dev/null
             then
-                echo 'playing'
-            else
-                echo 'starting'
-                {vlc_command}
+                sudo apt-get update
+                sudo apt-get -y install vlc
             fi
-        """
+            mkdir -p ~/videos
+            """
+        self.remote_run(command)
 
-        command = (
-            f"""echo "{service}" > ~/start_player.sh; chmod u+x ~/start_player.sh"""
-        )
-        remote_run(player, command)
+    def prepare_video_paths(self):
+        videos = self.videos
 
-        command = """grep -qxF '~/start_player.sh' ~/.bashrc || echo '~/start_player.sh' >> ~/.bashrc"""
-        remote_run(player, command)
+        if isinstance(videos, str):
+            videos = [videos]
 
-        remote_run(player, "killall -9 vlc")
-        remote_run(player, "~/start_player.sh")
-    else:
-        service = f"""
-            [Unit]
-            Description=Video Player
-            [Service]
-            Type=simple
-            TimeoutStartSec=0
-            ExecStart={vlc_command}
-            [Install]
-            WantedBy=default.target
-        """
-        command = "mkdir -p ~/.local/share/systemd/user"
-        remote_run(player, command)
+        videos = [glob(v) for v in videos]
+        videos = [v for sublist in videos for v in sublist]
 
-        command = f"""echo "{service}" > ~/.local/share/systemd/user/player.service"""
-        remote_run(player, command)
+        self.videos = videos
 
+    def copy_videos(self):
+        for v in self.videos:
+            command = f"""rsync -avzP --ignore-existing {v} {self.user}@{self.host}:~/videos/"""
+            run(command, shell=True)
 
-def restart_service(player):
-    command = "systemctl --user enable player.service"
-    remote_run(player, command)
+    def make_playlist(self):
+        plist = [f"/home/{self.user}/videos/{os.path.basename(v)}" for v in self.videos]
+        plist = "\n".join(plist)
+        command = f"""echo "{plist}" > ~/playlist.m3u"""
+        self.remote_run(command)
 
-    command = "systemctl --user restart player.service"
-    remote_run(player, command)
+    def create_service(self, service_type="bashrc"):
+        vlc_args = ["cvlc", "--daemon", "--no-osd", f"/home/{self.user}/playlist.m3u"]
+        if self.loop is True:
+            vlc_args += ["--loop"]
+
+        if self.random is True:
+            vlc_args += ["--random"]
+
+        vlc_command = " ".join(vlc_args)
+
+        if service_type == "bashrc":
+            service = f"""
+                if pgrep -x vlc >/dev/null
+                then
+                    echo 'playing'
+                else
+                    echo 'starting'
+                    {vlc_command}
+                fi
+            """
+
+            command = (
+                f"""echo "{service}" > ~/start_player.sh; chmod u+x ~/start_player.sh"""
+            )
+            self.remote_run(command)
+
+            command = """grep -qxF '~/start_player.sh' ~/.bashrc || echo '~/start_player.sh' >> ~/.bashrc"""
+            self.remote_run(command)
+
+            self.remote_run("killall -9 vlc")
+            self.remote_run("~/start_player.sh")
+        else:
+            service = f"""
+                [Unit]
+                Description=Video Player
+                [Service]
+                Type=simple
+                TimeoutStartSec=0
+                ExecStart={vlc_command}
+                [Install]
+                WantedBy=default.target
+            """
+            command = "mkdir -p ~/.local/share/systemd/user"
+            self.remote_run(command)
+
+            command = (
+                f"""echo "{service}" > ~/.local/share/systemd/user/player.service"""
+            )
+            self.remote_run(command)
+
+    def run(self):
+        self.prepare_video_paths()
+        self.setup_system()
+        self.copy_videos()
+        self.make_playlist()
+        self.create_service()
+
 
 
 def main(project_file=None, hosts=None, videos=None):
@@ -148,12 +159,8 @@ def main(project_file=None, hosts=None, videos=None):
     players = [{**settings, **p} for p in players]
 
     for p in players:
-        p["videos"] = prepare_video_paths(p)
-        setup_system(p)
-        copy_videos(p)
-        make_playlist(p)
-        create_service(p)
-        restart_service(p)
+        p = PiPlayer(**p)
+        p.run()
 
 
 def extant_file(x):
