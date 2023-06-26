@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "A command line interface to help set up a raspberry pi as a video player."
 authors = ["Sam Lavigne <splavigne@gmail.com>"]
 readme = "README.md"
+homepage = "https://github.com/antiboredom/piplayer"
+repository = "https://github.com/antiboredom/piplayer"
 
 [tool.poetry.dependencies]
 python = "^3.7"
