@@ -40,7 +40,7 @@ class PiPlayer:
 
     def send_commands(self):
         commands = "\n".join(self.command_queue)
-        command = f"""ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no {self.user}@{self.host} '{commands}'"""
+        command = f"""ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=no {self.user}@{self.host} '{commands}'"""
         self.command_queue = []
         run(command, shell=True)
 
@@ -123,7 +123,6 @@ class PiPlayer:
                 Description=Video Player
                 [Service]
                 Type=simple
-                TimeoutStartSec=0
                 ExecStart={vlc_command}
                 [Install]
                 WantedBy=default.target
@@ -135,6 +134,10 @@ class PiPlayer:
                 f"""echo "{service}" > ~/.local/share/systemd/user/player.service"""
             )
             self.remote_run(command)
+
+            self.remote_run("systemctl --user enable player.service")
+            self.remote_run("systemctl --user daemon-reload")
+            self.remote_run("systemctl --user restart player.service")
 
     def run(self):
         self.prepare_video_paths()
@@ -194,10 +197,13 @@ def cli():
     parser.add_argument("--video", help="Video file(s)", nargs="+")
     args = parser.parse_args()
 
-    if not args.project or (not args.video and not args.host):
+    if args.project:
+        main(project_file=args.project)
+    elif args.video and args.host:
+        main(hosts=args.host, videos=args.video)
+    else:
         parser.error("You must either specify a --project file or --video AND --host")
 
-    main(project_file=args.project, hosts=args.host, videos=args.video)
 
 
 if __name__ == "__main__":
