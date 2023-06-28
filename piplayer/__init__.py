@@ -61,16 +61,6 @@ class PiPlayer:
             """
         self.remote_run(command)
 
-    def prepare_video_paths(self):
-        videos = self.videos
-
-        if isinstance(videos, str):
-            videos = [videos]
-
-        videos = [glob(v) for v in videos]
-        videos = [v for sublist in videos for v in sublist]
-
-        self.videos = videos
 
     def copy_videos(self):
         self.create_folder()
@@ -140,7 +130,6 @@ class PiPlayer:
             self.remote_run("systemctl --user restart player.service")
 
     def run(self):
-        self.prepare_video_paths()
         self.copy_videos()
         self.install_vlc()
         self.make_playlist()
@@ -148,16 +137,31 @@ class PiPlayer:
         self.send_commands()
 
 
+def prepare_video_paths(videos, basepath):
+
+    if isinstance(videos, str):
+        videos = [videos]
+
+    if basepath:
+        videos = [glob(os.path.join(basepath, v)) for v in videos]
+    else:
+        videos = [glob(v) for v in videos]
+    videos = [v for sublist in videos for v in sublist]
+
+    return videos
 
 def main(project_file=None, hosts=None, videos=None):
     settings = {}
     players = []
+    basepath = None
 
     if project_file:
         with open(project_file, "r") as infile:
             data = yaml.safe_load(infile)
             settings = data.get("settings", {})
             players = data.get("players", [])
+            basepath = os.path.dirname(os.path.abspath(project_file))
+            print(basepath)
     elif hosts is not None and videos is not None:
         for h in hosts:
             players.append({"host": h, "videos": videos})
@@ -169,6 +173,7 @@ def main(project_file=None, hosts=None, videos=None):
     players = [{**settings, **p} for p in players]
 
     for p in players:
+        p['videos'] = prepare_video_paths(p['videos'], basepath)
         p = PiPlayer(**p)
         p.run()
 
